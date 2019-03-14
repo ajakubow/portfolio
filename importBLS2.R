@@ -25,7 +25,47 @@ agent <- paste0("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:52.0) ",
                 "Gecko/20100101 Firefox/52.0")
 
 ### Functions ------------------------------------------------------------------
+# Harmonizer for County FIPS Codes
+#
+# This function harmonizes county FIPS codes to facilitate the construction of
+# longitudinal datasets from disparate data sources that may employ different
+# coding decisions for FIPS changes over time.
+#
+# The function assumes the variables of interest are measured in counts
+# (as opposed to rates, logs, etc.)  It also assumes (and subsequently
+# drops) rate variables that are  defined by an "R$" or "RH$" suffix.
+#
+# This version harmonizes all counties (except Alaska) from 1990 to present
+# df Data frame to be harmonized.  Time unit is assumed to be in years.
+# the data frame must contain the following numeric columns:
+# fips_st (FIPS state code); fips_cnty (FIPS county code); year (year).
 
+fipsClean <- function(df) {
+  df <- df %>%
+    select(-ends_with("R", ignore.case = FALSE),
+           -ends_with("RH", ignore.case = FALSE),
+           -ends_with("M", ignore.case = FALSE)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 46 & fips_cnty ==  113, 102, fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 12 & fips_cnty ==  25, 86, fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 51 & fips_cnty ==  560, 5, fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 51 & fips_cnty ==  515, 19, fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 51 & fips_cnty ==  780, 83, fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 8 & fips_cnty %in% c(1, 13, 14, 59, 123), 901,
+                              fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 30 & fips_cnty %in% c(31, 67, 113), 901,
+                              fips_cnty)) %>%
+    mutate(fips_cnty = ifelse(fips_st == 15 & fips_cnty %in% c(5, 9), 901,
+                              fips_cnty)) %>%
+    group_by(fips_st, fips_cnty, year) %>%
+    summarize_at(.vars = vars(starts_with("pop_"), starts_with("bls_"),
+                              starts_with("bea_"), starts_with("shr_"),
+                              starts_with("spe_"), starts_with("shi_"),
+                              starts_with("ucr_"), starts_with("geo_"),
+                              starts_with("dth_")),
+                 .funs = sum)
+  
+  return(df)
+}
 
 ### Download and Wrangle Files--------------------------------------------------
 for (i in 0:17) {
